@@ -10,6 +10,47 @@ import {uploadOnCloudinary} from "../utils/cloudinary.js"
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
     //TODO: get all videos based on query, sort, pagination 
+
+    const filter = {};
+
+    if(query) {
+        filter.$or = [
+            { title : { $regex : query, $options: "i"}},
+            { description : { $regex : query, $options: "i"}},
+
+        ]
+    }
+
+    if (userId) {
+        filter.owner = userId
+    }
+
+    const sortOptions = {
+        [sortBy] : sortType === "asc" ? 1 : -1,
+    };
+
+    const pageNumber = Number(page);
+    const limitNumber = Number(limit);
+    const skip = (pageNumber - 1) * limitNumber
+    const video = await Video.find(filter)
+    .sort(sortOptions)
+    .skip(skip)
+    .limit(limitNumber)
+
+    const totalVideos = await Video.countDocuments(filter);
+    const totalPages =  Math.ceil(totalVideos/ limitNumber)
+    console.log(video);
+
+    video.page = pageNumber
+    video.limit = limitNumber
+    video.totalPages = totalPages
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, video , "All the videos fetched successfully")
+    )
+    
 })
 
 const publishAVideo = asyncHandler(async (req, res) => {
@@ -126,7 +167,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: delete video
 
-    await Video.findByIdAndUpdate(videoId)
+    await Video.findByIdAndDelete(videoId)
 
     return res
     .status(200)
